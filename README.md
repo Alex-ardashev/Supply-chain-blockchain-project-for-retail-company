@@ -6,4 +6,4 @@ I was responsible for the stakeholders management and evaluation of potential co
 
   * Wrote a smart contract to calculate approximate costs using Ethereum mainnet
   * Compared private and public blockchain solutions
-  * Decided to abandon the project because of negative unit-economics and technology being immature in 2019 ~~even now it is:)~~
+  * Decided to abandon the project because of negative unit-economics and technology being immature in 2018 ~~even now it is:)~~
