@@ -7,368 +7,139 @@
 
 //0xdd870fa1b7c4700f2bd7f44238821c26f7392148 - Supplier
 
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
 contract SupplyChain {
-
-enum Actor{ Others, Producer, Retailer, Supplier, Customer}
-
-enum Commoditytype{ meat, Jewelry, Shrimp, Others}
-
-enum Phase{ Supplier, Producer, Dealer, Retailer, Customer}
-
-struct User{
-
-bytes32 ID;
-
-bytes32 name;
-
-Actor actor;
-
-}
-
-struct Commodity{
-
-bytes32 commodityID;
-
-bytes32 commodityName;
-
-uint produceTime;
-
-bytes32 producerName;
-
-uint[] timestamps;
-
-bytes32[] supplierNames;
-
-uint[] supplytimestamps;
-
-bytes32[] retailerNames;
-
-uint sellTime;
-
-bytes32 customerName;
-
-bool isBinding;
-
-address owner;
-
-}
-
-mapping(address => User) producerMap;
-
-mapping(address => User) retailerMap;
-
-mapping(address => User) supplierMap;
-
-mapping(address => User) customerMap;
-
-mapping(bytes32 => Commodity) commodityMap;
-
-address[] _owners;
-
-address _currentOwner;
-
-address _nextOwner;
-
-struct Location {
-
-string name;
-
-uint locationId;
-
-uint previousLocationId;
-
-uint timestamp;
-
-string secret;
-
-}
-
-bytes32[] _locationSecrets;
-
-mapping(uint => Location) Trail;
-
-uint8 TrailCount;
-
-///////////////////////////////////////OWNERSHIP/////////////////////////////
-
-function setNextOwner(address nextOwner) private returns(bool set) {
-
-if (_currentOwner != msg.sender) {
-
-return false;
-
-}
-
-_nextOwner = nextOwner;
-
-return true;
-
-}
-
-function confirmOwnership() private returns(bool confirmed) {
-
-if (_nextOwner != msg.sender) {
-
-return false;
-
-}
-
-_owners.push(_nextOwner);
-
-_currentOwner = _nextOwner;
-
-_nextOwner = address(0);
-
-return true;
-
-}
-
-function getUsers() private constant returns (address[]) {
-
-return _owners;
-
-}
-
-function SupplyChain() {
-
-_currentOwner = msg.sender;
-
-_owners.push(msg.sender);
-
-}
-
-///////////////////////////////////////SUPPLYCHAIN/////////////////////////////
-
-function newUser(bytes32 ID, bytes32 name,Actor actor) private returns(bool, string){
-
-User user;
-
-if(actor == Actor.Producer){
-
-user = producerMap[msg.sender];
-
-}else if(actor == Actor.Retailer){
-
-user = retailerMap[msg.sender];
-
-}else if(actor == Actor.Supplier){
-
-user = supplierMap[msg.sender];
-
-}else if(actor == Actor.Customer){
-
-user = customerMap[msg.sender];
-
-}else{
-
-return (false,"the actor is not belong");
-
-}
-
-if(msg.sender != _owners[_owners.length - 1] ){
-
-return (false, "this ID has been occupied!");
-
-}
-
-user.ID = ID;
-
-user.name = name;
-
-user.actor = actor;
-
-return (true, "Success");
-
-}
-
-// Это интерфейс для производителя
-
-function newProduct(bytes32 commodityID, bytes32 commodityName,
-
-uint timestamp, bytes32 _secret) private returns(bool,bytes32){
-
-Commodity commodity = commodityMap[commodityID];
-
-if(commodity.commodityID != 0x0) {
-
-return (false,"The commodityID already exist!");
-
-}
-
-User user = producerMap[msg.sender];
-
-if(_currentOwner != 0x14723a09acff6d2a60dcdf7aa4aff308fddc160c || msg.sender != _owners[_owners.length - 1]) {
-
-return (false,"You have not enough premissions");
-
-}
-
-if(_secret != _locationSecrets[_locationSecrets.length - 1]) {
-
-return(false, "wrong Location");
-
-}
-
-commodity.commodityID = commodityID;
-
-commodity.commodityName = commodityName;
-
-commodity.produceTime = timestamp;
-
-commodity.producerName = user.name;
-
-return (true,"Success,produce a new product");
-
-}
-
-function CommodityTransfer(bytes32 commodityID,uint timestamp) private returns(bool, string){
-
-Commodity commodity = commodityMap[commodityID];
-
-if(commodity.commodityID == 0x0) {
-
-return (false,"The commodityID don't exist!");
-
-}
-
-User user = supplierMap[msg.sender];
-
-if(_currentOwner != 0xdd870fa1b7c4700f2bd7f44238821c26f7392148 || msg.sender != _owners[_owners.length - 1]) {
-
-return (false,"You have not enough premissions");
-
-}
-
-commodity.supplytimestamps.push(timestamp);
-
-commodity.supplierNames.push( user.name );
-
-return (true,"Success");
-
-}
-
-// Интерфейс для ритейлера
-
-function retailerInnerTransfer(bytes32 commodityID,uint timestamp) private returns(bool, string){
-
-Commodity commodity = commodityMap[commodityID];
-
-if(commodity.commodityID == 0x0) {
-
-return (false,"The commodityID don't exist!");
-
-}
-
-User user = retailerMap[msg.sender];
-
-if(_currentOwner != 0xca35b7d915458ef540ade6068dfe2f44e8fa733c || msg.sender != _owners[_owners.length - 1]) {
-
-return (false,"You have not enough premissions");
-
-}
-
-commodity.timestamps.push(timestamp);
-
-commodity.retailerNames.push( user.name );
-
-return (true,"Success");
-
-}
-
-function fromRetailerToCustomer(bytes32 commodityID,uint timestamp) private returns(bool, string){
-
-Commodity commodity = commodityMap[commodityID];
-
-if(commodity.commodityID == 0x0 ) {
-
-return (false,"The commodityID don't exist!");
-
-}
-
-User user = retailerMap[msg.sender];
-
-if(_currentOwner != 0xca35b7d915458ef540ade6068dfe2f44e8fa733c || msg.sender != _owners[_owners.length - 1]) {
-
-return (false,"You have not enough premissions");
-
-}
-
-commodity.sellTime = timestamp;
-
-return (true,"Success,Has been sold");
-
-}
-
-// Интерфейс для проверки
-
-function getCommodityRecords(bytes32 commodityID) public returns(bool,string,
-
-bytes32 producerName,uint produceTime, uint[] supplytimestamps, bytes32[] supplierNames, bytes32[] retailerNames,uint[] retailerTimes
-
-, bytes32 customerName,uint sellTime){
-
-if(msg.sender == 0x0){
-
-return (false,"you have no access",producerName, produceTime, supplytimestamps, supplierNames, retailerNames, retailerTimes, customerName,commodity.sellTime);
-
-}
-
-Commodity commodity = commodityMap[commodityID];
-
-if(commodity.commodityID == 0x0){
-
-return (false,"The commodityID is not exist",producerName, produceTime, supplytimestamps, supplierNames, retailerNames, retailerTimes,customerName,commodity.sellTime);
-
-}
-
-return (true,"Success",commodity.producerName, commodity.produceTime, commodity.supplytimestamps, commodity.supplierNames, commodity.retailerNames, commodity.timestamps, commodity.customerName,commodity.sellTime);
-
-}
-
-///////////////////////////////////////LOCATIONS/////////////////////////////
-
-function addNewLocation(uint locationId, string name,bytes32 secret) private {
-
-if(_currentOwner != 0xca35b7d915458ef540ade6068dfe2f44e8fa733c || msg.sender != _owners[_owners.length - 1]) {
-
-throw;
-
-}
-
-Location memory newLocation;
-
-newLocation.name = name;
-
-newLocation.locationId = locationId;
-
-//newLocation.secret = secret;
-
-_locationSecrets.push(secret);
-
-newLocation.timestamp = now;
-
-if (TrailCount!=0) {
-
-newLocation.previousLocationId = Trail[TrailCount].locationId;
-
-}
-
-Trail[TrailCount] = newLocation;
-
-TrailCount++;
-
-}
-
-function getTrailCount() returns(uint8) {
-
-return TrailCount;
-
-}
-
-function getLocation(uint8 trailNo) returns(string,uint,uint,uint) {
-
-return (Trail[trailNo].name,Trail[trailNo].locationId,Trail[trailNo].previousLocationId,Trail[trailNo].timestamp);
-
-}
-
-}
+    // Enums
+    enum Actor { Others, Producer, Retailer, Supplier, Customer }
+    enum CommodityType { Meat, Jewelry, Shrimp, Others }
+    enum Phase { Supplier, Producer, Dealer, Retailer, Customer }
+
+    // Structs
+    struct User {
+        bytes32 id;
+        bytes32 name;
+        Actor actor;
+        bool isRegistered;
+    }
+
+    struct Commodity {
+        bytes32 commodityID;
+        bytes32 commodityName;
+        CommodityType commodityType;
+        uint produceTime;
+        bytes32 producerName;
+        uint[] timestamps;
+        bytes32[] supplierNames;
+        uint[] supplyTimestamps;
+        bytes32[] retailerNames;
+        uint sellTime;
+        bytes32 customerName;
+        address owner;
+    }
+
+    struct Location {
+        string name;
+        uint locationId;
+        uint previousLocationId;
+        uint timestamp;
+        bytes32 secretHash;
+    }
+
+    // State variables
+    address public owner;
+    mapping(address => User) public users;
+    mapping(bytes32 => Commodity) public commodities;
+    mapping(uint => Location) public trail;
+    uint8 public trailCount;
+    address[] public ownershipHistory;
+
+    // Events
+    event UserRegistered(address indexed userAddress, bytes32 id, Actor actor);
+    event CommodityCreated(bytes32 indexed commodityID, address indexed producer);
+    event CommodityTransferred(bytes32 indexed commodityID, address indexed from, address indexed to);
+    event LocationAdded(uint indexed locationId, string name);
+
+    // Modifiers
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not authorized: Owner only");
+        _;
+    }
+
+    modifier onlyRegistered() {
+        require(users[msg.sender].isRegistered, "User not registered");
+        _;
+    }
+
+    modifier onlyActor(Actor _actor) {
+        require(users[msg.sender].actor == _actor, "Invalid actor role");
+        _;
+    }
+
+    // Constructor
+    constructor() {
+        owner = msg.sender;
+        ownershipHistory.push(msg.sender);
+    }
+
+    // User Management
+    function registerUser(bytes32 _id, bytes32 _name, Actor _actor) 
+        external 
+        returns (bool success) 
+    {
+        require(!users[msg.sender].isRegistered, "User already registered");
+        require(_actor != Actor.Others, "Invalid actor type");
+
+        users[msg.sender] = User({
+            id: _id,
+            name: _name,
+            actor: _actor,
+            isRegistered: true
+        });
+        
+        emit UserRegistered(msg.sender, _id, _actor);
+        return true;
+    }
+
+    // Commodity Management
+    function createCommodity(
+        bytes32 _commodityID,
+        bytes32 _commodityName,
+        CommodityType _type,
+        bytes32 _secretHash
+    ) 
+        external 
+        onlyRegistered 
+        onlyActor(Actor.Producer) 
+        returns (bool success) 
+    {
+        require(commodities[_commodityID].commodityID == 0, "Commodity ID already exists");
+
+        commodities[_commodityID] = Commodity({
+            commodityID: _commodityID,
+            commodityName: _commodityName,
+            commodityType: _type,
+            produceTime: block.timestamp,
+            producerName: users[msg.sender].name,
+            timestamps: new uint[](0),
+            supplierNames: new bytes32[](0),
+            supplyTimestamps: new uint[](0),
+            retailerNames: new bytes32[](0),
+            sellTime: 0,
+            customerName: bytes32(0),
+            owner: msg.sender
+        });
+
+        emit CommodityCreated(_commodityID, msg.sender);
+        return true;
+    }
+
+    // Transfer Functions
+    function supplierTransfer(bytes32 _commodityID, uint _timestamp) 
+        external 
+        onlyRegistered 
+        onlyActor(Actor.Supplier) 
+        returns (bool success) 
+    {
+        Commodity storage commodity
